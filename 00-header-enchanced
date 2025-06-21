@@ -111,8 +111,16 @@ ENTRIES_HEIGHT=${#ENTRIES[@]}
 
 # === 4. CASE 1: Логотип слишком широкий — header + logo + sysinfo (vertically) ===
 if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
-    echo "Welcome to $DISTRIB_DESCRIPTION ($KERNEL_INFO)"
+    [ -r /etc/lsb-release ] && . /etc/lsb-release
+
+    if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
+            # Fall back to using the very slow lsb_release utility
+            DISTRIB_DESCRIPTION=$(lsb_release -s -d)
+    fi
+
+    printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
     echo
+    
     for line in "${LOGO_LINES[@]}"; do
         echo "$line"
     done
@@ -144,15 +152,7 @@ if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
         DISTRIB_DESCRIPTION=$(lsb_release -s -d)
 fi
 
-printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
-echo
-
-for line in "${LOGO_LINES[@]}"; do
-    echo "$line"
-done
-echo
-
-sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+sys_entries=("${ENTRIES[@]}")
 half=$(( (${#sys_entries[@]} + 1) / 2 ))
 
 COLUMN_1=()
