@@ -124,29 +124,44 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
     fi
 
     half=$(( (${#sys_entries[@]} + 1) / 2 ))
-    COLUMN_1=("${sys_entries[@]:0:$half}")
-    COLUMN_2=("${sys_entries[@]:$half}")
+    LEFT=("${sys_entries[@]:0:$half}")
+    RIGHT=("${sys_entries[@]:$half}")
 
-    # Calculate max key width per column
-    key_width_1=0
-    key_width_2=0
-    for i in "${!COLUMN_1[@]}"; do
-        key="${COLUMN_1[$i]%%:*}"
-        [ ${#key} -gt $key_width_1 ] && key_width_1=${#key}
-    done
-    for i in "${!COLUMN_2[@]}"; do
-        key="${COLUMN_2[$i]%%:*}"
-        [ ${#key} -gt $key_width_2 ] && key_width_2=${#key}
-    done
+    parse_column() {
+        local entries=("$@")
+        local keys=()
+        local values=()
+        local max_key=0
+
+        for line in "${entries[@]}"; do
+            key="${line%%:*}:"
+            val="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
+            keys+=("$key")
+            values+=("$val")
+            [ ${#key} -gt $max_key ] && max_key=${#key}
+        done
+
+        echo "$(IFS=$'\n'; echo "${keys[*]}")" > /tmp/keys
+        echo "$(IFS=$'\n'; echo "${values[*]}")" > /tmp/vals
+        echo "$max_key" > /tmp/max
+    }
+
+    parse_column "${LEFT[@]}"
+    LEFT_KEYS=($(< /tmp/keys))
+    LEFT_VALUES=($(< /tmp/vals))
+    LEFT_WIDTH=$(< /tmp/max)
+
+    parse_column "${RIGHT[@]}"
+    RIGHT_KEYS=($(< /tmp/keys))
+    RIGHT_VALUES=($(< /tmp/vals))
+    RIGHT_WIDTH=$(< /tmp/max)
 
     for i in $(seq 0 $((half - 1))); do
-        k1="${COLUMN_1[$i]%%:*}"
-        v1="$(echo "${COLUMN_1[$i]#*:}" | sed 's/^[[:space:]]*//')"
-        k2="${COLUMN_2[$i]%%:*}"
-        v2="$(echo "${COLUMN_2[$i]#*:}" | sed 's/^[[:space:]]*//')"
-        printf "  %-*s %s   %-*s %s\n" \
-            "$key_width_1" "$k1" "$v1" \
-            "$key_width_2" "$k2" "$v2"
+        printf "  %-*s %s" "$LEFT_WIDTH" "${LEFT_KEYS[$i]}" "${LEFT_VALUES[$i]}"
+        if [ -n "${RIGHT_KEYS[$i]}" ]; then
+            printf "   %-*s %s" "$RIGHT_WIDTH" "${RIGHT_KEYS[$i]}" "${RIGHT_VALUES[$i]}"
+        fi
+        echo
     done
     exit 0
 fi
@@ -179,27 +194,43 @@ if [ "${#sys_entries[@]}" -gt 0 ]; then
 fi
 
 half=$(( (${#sys_entries[@]} + 1) / 2 ))
-COLUMN_1=("${sys_entries[@]:0:$half}")
-COLUMN_2=("${sys_entries[@]:$half}")
+LEFT=("${sys_entries[@]:0:$half}")
+RIGHT=("${sys_entries[@]:$half}")
 
-key_width_1=0
-key_width_2=0
-for i in "${!COLUMN_1[@]}"; do
-    key="${COLUMN_1[$i]%%:*}"
-    [ ${#key} -gt $key_width_1 ] && key_width_1=${#key}
-done
-for i in "${!COLUMN_2[@]}"; do
-    key="${COLUMN_2[$i]%%:*}"
-    [ ${#key} -gt $key_width_2 ] && key_width_2=${#key}
-done
+parse_column() {
+    local entries=("$@")
+    local keys=()
+    local values=()
+    local max_key=0
+
+    for line in "${entries[@]}"; do
+        key="${line%%:*}:"
+        val="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
+        keys+=("$key")
+        values+=("$val")
+        [ ${#key} -gt $max_key ] && max_key=${#key}
+    done
+
+    echo "$(IFS=$'\n'; echo "${keys[*]}")" > /tmp/keys
+    echo "$(IFS=$'\n'; echo "${values[*]}")" > /tmp/vals
+    echo "$max_key" > /tmp/max
+}
+
+parse_column "${LEFT[@]}"
+LEFT_KEYS=($(< /tmp/keys))
+LEFT_VALUES=($(< /tmp/vals))
+LEFT_WIDTH=$(< /tmp/max)
+
+parse_column "${RIGHT[@]}"
+RIGHT_KEYS=($(< /tmp/keys))
+RIGHT_VALUES=($(< /tmp/vals))
+RIGHT_WIDTH=$(< /tmp/max)
 
 for i in $(seq 0 $((half - 1))); do
-    k1="${COLUMN_1[$i]%%:*}"
-    v1="$(echo "${COLUMN_1[$i]#*:}" | sed 's/^[[:space:]]*//')"
-    k2="${COLUMN_2[$i]%%:*}"
-    v2="$(echo "${COLUMN_2[$i]#*:}" | sed 's/^[[:space:]]*//')"
-    printf "  %-*s %s   %-*s %s\n" \
-        "$key_width_1" "$k1" "$v1" \
-        "$key_width_2" "$k2" "$v2"
+    printf "  %-*s %s" "$LEFT_WIDTH" "${LEFT_KEYS[$i]}" "${LEFT_VALUES[$i]}"
+    if [ -n "${RIGHT_KEYS[$i]}" ]; then
+        printf "   %-*s %s" "$RIGHT_WIDTH" "${RIGHT_KEYS[$i]}" "${RIGHT_VALUES[$i]}"
+    fi
+    echo
 done
 exit 0
