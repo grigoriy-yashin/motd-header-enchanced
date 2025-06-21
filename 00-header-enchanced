@@ -8,9 +8,9 @@ ASSET_LOGO_PATH="/etc/update-motd.d/assets/logo.txt"
 CACHE="/var/lib/landscape/landscape-sysinfo.cache"
 
 ENTRIES=()
-ENTRIES+=("Entry ${#ENTRIES[@]}: Welcome to $(lsb_release -d | cut -f2-)")
-ENTRIES+=("Entry ${#ENTRIES[@]}: ($(uname -o) $(uname -r) $(uname -m))")
-ENTRIES+=("Entry ${#ENTRIES[@]}:")
+ENTRIES+=("Welcome to $(lsb_release -d | cut -f2-)")
+ENTRIES+=("($(uname -o) $(uname -r) $(uname -m))")
+ENTRIES+=(" ")
 
 STATIC_COUNT=${#ENTRIES[@]}
 
@@ -77,7 +77,7 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
         if [ "${#field_positions[@]}" -eq 1 ]; then
             key=${field_positions[0]#*:}
             val=${line#*$key}
-            ENTRIES+=("Entry ${#ENTRIES[@]}: $key$val")
+            ENTRIES+=("$key$val")
         elif [ "${#field_positions[@]}" -gt 1 ]; then
             IFS=$'\n' sorted=($(printf '%s\n' "${field_positions[@]}" | sort -n))
             for i in "${!sorted[@]}"; do
@@ -92,7 +92,7 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
                     chunk=${line:$start-1}
                 fi
                 trimmed=$(echo "$chunk" | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
-                ENTRIES+=("Entry ${#ENTRIES[@]}: $trimmed")
+                ENTRIES+=("$trimmed")
             done
         fi
     done <<< "$SYSINFO_OUTPUT"
