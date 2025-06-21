@@ -145,24 +145,20 @@ if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
 fi
 
 # === 6. CASE 3: Логотип короткий — logo + 2-column sysinfo ===
-[ -r /etc/lsb-release ] && . /etc/lsb-release
-
-if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
-        # Fall back to using the very slow lsb_release utility
-        DISTRIB_DESCRIPTION=$(lsb_release -s -d)
-fi
-
-sys_entries=("${ENTRIES[@]}")
-half=$(( (${#sys_entries[@]} + 1) / 2 ))
+for line in "${LOGO_LINES[@]}"; do
+    echo "$line"
+done
+echo
 
 COLUMN_1=()
 COLUMN_2=()
+half=$(( (${#ENTRIES[@]} + 1) / 2 ))
 
-for i in "${!sys_entries[@]}"; do
+for i in "${!ENTRIES[@]}"; do
     if [ "$i" -lt "$half" ]; then
-        COLUMN_1+=("${sys_entries[$i]}")
+        COLUMN_1+=("${ENTRIES[$i]}")
     else
-        COLUMN_2+=("${sys_entries[$i]}")
+        COLUMN_2+=("${ENTRIES[$i]}")
     fi
 done
 
