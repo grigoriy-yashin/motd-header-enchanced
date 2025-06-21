@@ -156,23 +156,23 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
     RIGHT_VALUES=($(< /tmp/vals))
     RIGHT_WIDTH=$(< /tmp/max)
 
-    # Вычислим максимальную длину полной строки в левой колонке
+    # выравнивание второй колонки по общей ширине левой колонки
     MAX_LEFT_LINE=0
     for i in "${!LEFT_KEYS[@]}"; do
-        len=$(( ${#LEFT_KEYS[i]} + 1 + ${#LEFT_VALUES[i]} ))  # +1 — пробел между ключом и значением
+        len=$(( ${#LEFT_KEYS[i]} + 1 + ${#LEFT_VALUES[i]} ))  # +1 пробел
         [ "$len" -gt "$MAX_LEFT_LINE" ] && MAX_LEFT_LINE=$len
     done
 
-    # Отрисовка с выравниванием второй колонки по фиксированной позиции
     for i in $(seq 0 $((half - 1))); do
         LEFT_LINE=$(printf "%-*s %s" "$LEFT_WIDTH" "${LEFT_KEYS[$i]}" "${LEFT_VALUES[$i]}")
         printf "  %s" "$LEFT_LINE"
         if [ -n "${RIGHT_KEYS[$i]}" ]; then
-            SPACES=$(( MAX_LEFT_LINE - ${#LEFT_LINE} + 4 ))  # отступ между колонками (4 пробела)
+            SPACES=$(( MAX_LEFT_LINE - ${#LEFT_LINE} + 4 ))
             printf "%*s%-*s %s" "$SPACES" "" "$RIGHT_WIDTH" "${RIGHT_KEYS[$i]}" "${RIGHT_VALUES[$i]}"
         fi
         echo
     done
+    exit 0
 fi
 
 # === 4. Tall logo: side-by-side with entries ===
@@ -235,19 +235,17 @@ RIGHT_KEYS=($(< /tmp/keys))
 RIGHT_VALUES=($(< /tmp/vals))
 RIGHT_WIDTH=$(< /tmp/max)
 
-# Вычислим максимальную длину полной строки в левой колонке
 MAX_LEFT_LINE=0
 for i in "${!LEFT_KEYS[@]}"; do
-    len=$(( ${#LEFT_KEYS[i]} + 1 + ${#LEFT_VALUES[i]} ))  # +1 — пробел между ключом и значением
+    len=$(( ${#LEFT_KEYS[i]} + 1 + ${#LEFT_VALUES[i]} ))
     [ "$len" -gt "$MAX_LEFT_LINE" ] && MAX_LEFT_LINE=$len
 done
 
-# Отрисовка с выравниванием второй колонки по фиксированной позиции
 for i in $(seq 0 $((half - 1))); do
     LEFT_LINE=$(printf "%-*s %s" "$LEFT_WIDTH" "${LEFT_KEYS[$i]}" "${LEFT_VALUES[$i]}")
     printf "  %s" "$LEFT_LINE"
     if [ -n "${RIGHT_KEYS[$i]}" ]; then
-        SPACES=$(( MAX_LEFT_LINE - ${#LEFT_LINE} + 4 ))  # отступ между колонками (4 пробела)
+        SPACES=$(( MAX_LEFT_LINE - ${#LEFT_LINE} + 4 ))
         printf "%*s%-*s %s" "$SPACES" "" "$RIGHT_WIDTH" "${RIGHT_KEYS[$i]}" "${RIGHT_VALUES[$i]}"
     fi
     echo
