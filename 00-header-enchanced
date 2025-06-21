@@ -1,6 +1,8 @@
 #!/bin/bash
 ###############################################################################
-# MOTD: ASCII logo + dynamic sysinfo entries with cache logic from 50-landscape
+# MOTD script: ASCII logo + system info entries (landscape-sysinfo based)
+# Handles wide/short logo logic, dynamic entry count, clean formatting, and
+# mirrors original 50-landscape-sysinfo cache behavior.
 ###############################################################################
 
 WIDTH=30
@@ -14,14 +16,15 @@ ENTRIES+=(" ")
 
 STATIC_COUNT=${#ENTRIES[@]}
 
-# === 1. Получаем landscape-sysinfo ===
+# =============================
+# 1. Parse landscape-sysinfo
+# =============================
 if [ -x /usr/bin/landscape-sysinfo ]; then
-    # --- блок полностью аналогичен оригинальному 50-landscape-sysinfo ---
     HAS_CACHE="FALSE"
     CACHE_NEEDS_UPDATE="FALSE"
 
     [ -r "$CACHE" ] && HAS_CACHE="TRUE"
-    [ -z "$(find "$CACHE" -newermt 'now-1 minutes' 2> /dev/null)" ] && CACHE_NEEDS_UPDATE="TRUE"
+    [ -z "$(find "$CACHE" -newermt 'now-1 minutes' 2>/dev/null)" ] && CACHE_NEEDS_UPDATE="TRUE"
 
     if [ "$HAS_CACHE" = "TRUE" ] && [ "$CACHE_NEEDS_UPDATE" = "FALSE" ]; then
         SYSINFO_OUTPUT=$(cat "$CACHE")
@@ -35,15 +38,15 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
 
         if [ "$(echo "$(cut -f1 -d ' ' /proc/loadavg) < $THRESHOLD" | bc)" -eq 1 ]; then
             SYSINFO_OUTPUT=$(printf "\n System information as of %s\n\n%s\n" \
-                "$(/bin/date)" \
-                "$(/usr/bin/landscape-sysinfo)")
-            echo "$SYSINFO_OUTPUT" 2>/dev/null >"$CACHE" || true
+                "$(${DATE_CMD:-/bin/date})" \
+                "$(${LANDSCAPE_CMD:-/usr/bin/landscape-sysinfo)}")
+            echo "$SYSINFO_OUTPUT" > "$CACHE" 2>/dev/null || true
             chmod 0644 "$CACHE" 2>/dev/null || true
         else
             SYSINFO_OUTPUT=$(printf "\n System information disabled due to load higher than %s\n" "$THRESHOLD")
             if [ "$HAS_CACHE" = "TRUE" ]; then
                 if ! grep -q "System information as of" "$CACHE" 2>/dev/null; then
-                    echo "$SYSINFO_OUTPUT" 2>/dev/null >"$CACHE" || true
+                    echo "$SYSINFO_OUTPUT" > "$CACHE" 2>/dev/null || true
                     chmod 0644 "$CACHE" 2>/dev/null || true
                 else
                     SYSINFO_OUTPUT=$(cat "$CACHE")
@@ -52,8 +55,7 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
         fi
     fi
 
-    # === 2. Парсим sysinfo строки ===
-
+    # Parse output lines into key-value pairs based on known sysinfo labels
     wanted_keys=(
         "System load:"
         "Usage of /:"
@@ -69,16 +71,14 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
         field_positions=()
         for key in "${wanted_keys[@]}"; do
             pos=$(awk -v a="$line" -v b="$key" 'BEGIN{print index(a,b)}')
-            if [ "$pos" -gt 0 ]; then
-                field_positions+=("$pos:$key")
-            fi
+            [ "$pos" -gt 0 ] && field_positions+=("$pos:$key")
         done
 
-        if [ "${#field_positions[@]}" -eq 1 ]; then
+        if [ ${#field_positions[@]} -eq 1 ]; then
             key=${field_positions[0]#*:}
             val=${line#*$key}
             ENTRIES+=("$key$val")
-        elif [ "${#field_positions[@]}" -gt 1 ]; then
+        elif [ ${#field_positions[@]} -gt 1 ]; then
             IFS=$'\n' sorted=($(printf '%s\n' "${field_positions[@]}" | sort -n))
             for i in "${!sorted[@]}"; do
                 pos=${sorted[$i]%%:*}
@@ -98,43 +98,30 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
     done <<< "$SYSINFO_OUTPUT"
 fi
 
-# === 3. Читаем логотип из файла ===
+# =============================
+# 2. Read ASCII logo
+# =============================
 if [ ! -f "$ASSET_LOGO_PATH" ]; then
     echo "ERROR: Logo file not found at $ASSET_LOGO_PATH"
     exit 1
 fi
-
 IFS=$'\n' read -r -d '' -a LOGO_LINES < "$ASSET_LOGO_PATH"
 LOGO_HEIGHT=${#LOGO_LINES[@]}
 LOGO_WIDTH=$(printf '%s\n' "${LOGO_LINES[@]}" | awk '{print length}' | sort -nr | head -n1)
 ENTRIES_HEIGHT=${#ENTRIES[@]}
 
-# === 4. CASE 1: Логотип слишком широкий — header + logo + sysinfo (vertically) ===
-if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
-    [ -r /etc/lsb-release ] && . /etc/lsb-release
+# =============================
+# 3. Format and print aligned entries
+# =============================
+print_aligned_entries() {
+    local -a entries=()
+    local -a keys=()
+    local -a values=()
+    local key_width=0
+    local value_width=0
 
-    if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
-            # Fall back to using the very slow lsb_release utility
-            DISTRIB_DESCRIPTION=$(lsb_release -s -d)
-    fi
-
-    printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
-    echo
-
-    for line in "${LOGO_LINES[@]}"; do
-        echo "$line"
-    done
-    echo
-
-    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
-
-    # --- 1. Собираем ключи и значения отдельно ---
-    keys=()
-    values=()
-    key_width=0
-    value_width=0
-
-    for line in "${sys_entries[@]}"; do
+    entries=("${@}")
+    for line in "${entries[@]}"; do
         key="${line%%:*}:"
         value="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
         keys+=("$key")
@@ -143,7 +130,6 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
         [ ${#value} -gt $value_width ] && value_width=${#value}
     done
 
-    # --- 2. Формируем строки для колонок с выравниванием ---
     align_entries=()
     for i in "${!keys[@]}"; do
         key_pad=$(printf "%-${key_width}s" "${keys[$i]}")
@@ -151,30 +137,30 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
         align_entries+=("$key_pad $value_pad")
     done
 
-    # --- 2. Разбить на две колонки ---
-    half=$(( (${#align_entries[@]} + 1) / 2 ))
-    COLUMN_1=()
-    COLUMN_2=()
+    local half=$(( (${#align_entries[@]} + 1) / 2 ))
+    local -a col1=("${align_entries[@]:0:$half}")
+    local -a col2=("${align_entries[@]:$half}")
 
-    for i in "${!align_entries[@]}"; do
-        if [ "$i" -lt "$half" ]; then
-            COLUMN_1+=("${align_entries[$i]}")
-        else
-            COLUMN_2+=("${align_entries[$i]}")
-        fi
-    done
-
-    # --- 3. Выравнивание левого столбца ---
-    max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
+    local max_len=$(printf '%s\n' "${col1[@]}" | awk '{print length}' | sort -nr | head -n1)
     for i in $(seq 0 $((half - 1))); do
-        col1="${COLUMN_1[$i]}"
-        col2="${COLUMN_2[$i]}"
-        printf "%-*s   %s\n" "$max_len" "$col1" "$col2"
+        printf "%-*s   %s\n" "$max_len" "${col1[$i]}" "${col2[$i]}"
     done
+}
+
+# =============================
+# 4. Decide display case
+# =============================
+if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
+    [ -r /etc/lsb-release ] && . /etc/lsb-release
+    [ -z "$DISTRIB_DESCRIPTION" ] && DISTRIB_DESCRIPTION=$(lsb_release -s -d 2>/dev/null)
+
+    printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
+    printf "%s\n" "${LOGO_LINES[@]}"
+    echo
+    print_aligned_entries "${ENTRIES[@]:$STATIC_COUNT}"
     exit 0
 fi
 
-# === 5. CASE 2: Логотип достаточно высокий — logo + entries side-by-side ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     for i in "${!LOGO_LINES[@]}"; do
         if [ $i -lt "$ENTRIES_HEIGHT" ]; then
@@ -186,65 +172,12 @@ if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     exit 0
 fi
 
-# === 6. CASE 3: Логотип короткий — logo + 2-column sysinfo ===
 [ -r /etc/lsb-release ] && . /etc/lsb-release
+[ -z "$DISTRIB_DESCRIPTION" ] && DISTRIB_DESCRIPTION=$(lsb_release -s -d 2>/dev/null)
 
-if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
-        # Fall back to using the very slow lsb_release utility
-        DISTRIB_DESCRIPTION=$(lsb_release -s -d)
-fi
+printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
+printf "%s\n" "${LOGO_LINES[@]}"
 
-printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
 echo
-
-for line in "${LOGO_LINES[@]}"; do
-    echo "$line"
-done
-echo
-
-sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
-
-# --- 1. Собираем ключи и значения отдельно ---
-keys=()
-values=()
-key_width=0
-value_width=0
-
-for line in "${sys_entries[@]}"; do
-    key="${line%%:*}:"
-    value="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
-    keys+=("$key")
-    values+=("$value")
-    [ ${#key} -gt $key_width ] && key_width=${#key}
-    [ ${#value} -gt $value_width ] && value_width=${#value}
-done
-
-# --- 2. Формируем строки для колонок с выравниванием ---
-align_entries=()
-for i in "${!keys[@]}"; do
-    key_pad=$(printf "%-${key_width}s" "${keys[$i]}")
-    value_pad=$(printf "%-${value_width}s" "${values[$i]}")
-    align_entries+=("$key_pad $value_pad")
-done
-
-# --- 2. Разбить на две колонки ---
-half=$(( (${#align_entries[@]} + 1) / 2 ))
-COLUMN_1=()
-COLUMN_2=()
-
-for i in "${!align_entries[@]}"; do
-    if [ "$i" -lt "$half" ]; then
-        COLUMN_1+=("${align_entries[$i]}")
-    else
-        COLUMN_2+=("${align_entries[$i]}")
-    fi
-done
-
-# --- 3. Выравнивание левого столбца ---
-max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
-for i in $(seq 0 $((half - 1))); do
-    col1="${COLUMN_1[$i]}"
-    col2="${COLUMN_2[$i]}"
-    printf "%-*s   %s\n" "$max_len" "$col1" "$col2"
-done
+print_aligned_entries "${ENTRIES[@]:$STATIC_COUNT}"
 exit 0
