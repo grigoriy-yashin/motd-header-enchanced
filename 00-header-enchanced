@@ -181,6 +181,76 @@ if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     exit 0
 fi
 
-# === 5. Short logo logic ===
+# === 6. Short and narrow logo with header on the right ===
+if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
+    WELCOME="${ENTRIES[0]}"
+    KERNEL="${ENTRIES[1]}"
+    PAD="   "  # Padding between logo and text
+
+    for i in "${!LOGO_LINES[@]}"; do
+        LINE="${LOGO_LINES[$i]}"
+        if [ $i -eq 0 ]; then
+            printf "%s%s%s\n" "$LINE" "$PAD" "$WELCOME"
+        elif [ $i -eq 1 ]; then
+            printf "%s%s%s\n" "$LINE" "$PAD" "$KERNEL"
+        else
+            printf "%s\n" "$LINE"
+        fi
+    done
+
+    # Print system info entries (excluding header)
+    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+    [ "${#sys_entries[@]}" -gt 0 ] && printf "System information as of %s\n\n" "$(/bin/date)"
+
+    half=$(( (${#sys_entries[@]} + 1) / 2 ))
+    LEFT=("${sys_entries[@]:0:$half}")
+    RIGHT=("${sys_entries[@]:$half}")
+
+    parse_column() {
+        local entries=("$@")
+        local keys=()
+        local values=()
+        local max_key=0
+        for line in "${entries[@]}"; do
+            key="${line%%:*}:"
+            val="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
+            keys+=("$key")
+            values+=("$val")
+            [ ${#key} -gt $max_key ] && max_key=${#key}
+        done
+        echo "$(IFS=$'\n'; echo "${keys[*]}")" > /tmp/keys
+        echo "$(IFS=$'\n'; echo "${values[*]}")" > /tmp/vals
+        echo "$max_key" > /tmp/max
+    }
+
+    parse_column "${LEFT[@]}"
+    LEFT_KEYS=($(< /tmp/keys))
+    LEFT_VALUES=($(< /tmp/vals))
+    LEFT_WIDTH=$(< /tmp/max)
+
+    parse_column "${RIGHT[@]}"
+    RIGHT_KEYS=($(< /tmp/keys))
+    RIGHT_VALUES=($(< /tmp/vals))
+    RIGHT_WIDTH=$(< /tmp/max)
+
+    MAX_LEFT_LINE=0
+    for i in "${!LEFT_KEYS[@]}"; do
+        len=$(( ${#LEFT_KEYS[i]} + 1 + ${#LEFT_VALUES[i]} ))
+        [ "$len" -gt "$MAX_LEFT_LINE" ] && MAX_LEFT_LINE=$len
+    done
+
+    for i in $(seq 0 $((half - 1))); do
+        LEFT_LINE=$(printf "%-*s %s" "$LEFT_WIDTH" "${LEFT_KEYS[$i]}" "${LEFT_VALUES[$i]}")
+        printf "  %s" "$LEFT_LINE"
+        if [ -n "${RIGHT_KEYS[$i]}" ]; then
+            SPACES=$(( MAX_LEFT_LINE - ${#LEFT_LINE} + 4 ))
+            printf "%*s%-*s %s" "$SPACES" "" "$RIGHT_WIDTH" "${RIGHT_KEYS[$i]}" "${RIGHT_VALUES[$i]}"
+        fi
+        echo
+    done
+    exit 0
+fi
+
+# === 5. Default: short logo logic (fallback) ===
 print_header_and_sysinfo
 exit 0
