@@ -118,6 +118,11 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
     echo
 
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+
+    if [ "${#sys_entries[@]}" -gt 0 ]; then
+        printf "\nSystem information as of %s\n\n" "$(/bin/date)"
+    fi
+
     keys=(); values=(); key_width=0; value_width=0
     for line in "${sys_entries[@]}"; do
         key="${line%%:*}:"
@@ -157,11 +162,16 @@ fi
 if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
     DISTRIB_DESCRIPTION=$(lsb_release -s -d)
 fi
+
 printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
 printf '%s\n' "${LOGO_LINES[@]}"
-echo
 
 sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+
+if [ "${#sys_entries[@]}" -gt 0 ]; then
+    printf "\nSystem information as of %s\n\n" "$(/bin/date)"
+fi
+
 keys=(); values=(); key_width=0; value_width=0
 for line in "${sys_entries[@]}"; do
     key="${line%%:*}:"
@@ -169,16 +179,17 @@ for line in "${sys_entries[@]}"; do
     keys+=("$key"); values+=("$value")
     [ ${#key} -gt $key_width ] && key_width=${#key}
     [ ${#value} -gt $value_width ] && value_width=${#value}
-
 done
+
 align_entries=()
 for i in "${!keys[@]}"; do
     align_entries+=("$(printf "%-${key_width}s %-${value_width}s" "${keys[$i]}" "${values[$i]}")")
-
 done
+
 half=$(( (${#align_entries[@]} + 1) / 2 ))
 COLUMN_1=("${align_entries[@]:0:$half}")
 COLUMN_2=("${align_entries[@]:$half}")
+
 max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
 for i in $(seq 0 $((half - 1))); do
     printf "%-*s   %s\n" "$max_len" "${COLUMN_1[$i]}" "${COLUMN_2[$i]}"
