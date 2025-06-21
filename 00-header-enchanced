@@ -115,12 +115,11 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
     printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
 
     printf '%s\n' "${LOGO_LINES[@]}"
-    echo
 
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
 
     if [ "${#sys_entries[@]}" -gt 0 ]; then
-        printf "\nSystem information as of %s\n\n" "$(/bin/date)"
+        printf "System information as of %s\n\n" "$(/bin/date)"
     fi
 
     half=$(( (${#sys_entries[@]} + 1) / 2 ))
@@ -199,7 +198,7 @@ printf '%s\n' "${LOGO_LINES[@]}"
 sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
 
 if [ "${#sys_entries[@]}" -gt 0 ]; then
-    printf "\nSystem information as of %s\n\n" "$(/bin/date)"
+    printf "System information as of %s\n\n" "$(/bin/date)"
 fi
 
 half=$(( (${#sys_entries[@]} + 1) / 2 ))
