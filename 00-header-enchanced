@@ -3,7 +3,7 @@
 # MOTD: ASCII logo + dynamic sysinfo entries with cache logic from 50-landscape
 ###############################################################################
 
-WIDTH=70
+WIDTH=30
 ASSET_LOGO_PATH="/etc/update-motd.d/assets/logo.txt"
 CACHE="/var/lib/landscape/landscape-sysinfo.cache"
 
@@ -120,14 +120,32 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
 
     printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
     echo
-    
+
     for line in "${LOGO_LINES[@]}"; do
         echo "$line"
     done
     echo
-    for entry in "${ENTRIES[@]:$STATIC_COUNT}"; do
-        # Не печатать Entry 0/1/2 — они были в заголовке
-        echo "$entry"
+
+    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+    half=$(( (${#sys_entries[@]} + 1) / 2 ))
+
+    COLUMN_1=()
+    COLUMN_2=()
+
+    for i in "${!sys_entries[@]}"; do
+        if [ "$i" -lt "$half" ]; then
+            COLUMN_1+=("${sys_entries[$i]}")
+        else
+            COLUMN_2+=("${sys_entries[$i]}")
+        fi
+    done
+
+    # Выравниваем столбцы
+    max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
+    for i in $(seq 0 $((half - 1))); do
+        col1="${COLUMN_1[$i]}"
+        col2="${COLUMN_2[$i]}"
+        printf "%-*s   %s\n" "$max_len" "$col1" "$col2"
     done
     exit 0
 fi
