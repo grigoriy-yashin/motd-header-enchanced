@@ -1,0 +1,175 @@
+#!/bin/bash
+###############################################################################
+# MOTD: ASCII logo + dynamic sysinfo entries with cache logic from 50-landscape
+###############################################################################
+
+WIDTH=70
+ASSET_LOGO_PATH="/etc/update-motd.d/assets/logo.txt"
+CACHE="/var/lib/landscape/landscape-sysinfo.cache"
+
+ENTRIES=()
+ENTRIES+=("Entry ${#ENTRIES[@]}: Welcome to $(lsb_release -d | cut -f2-)")
+ENTRIES+=("Entry ${#ENTRIES[@]}: ($(uname -o) $(uname -r) $(uname -m))")
+ENTRIES+=("Entry ${#ENTRIES[@]}:")
+
+STATIC_COUNT=${#ENTRIES[@]}
+
+# === 1. Получаем landscape-sysinfo ===
+if [ -x /usr/bin/landscape-sysinfo ]; then
+    # --- блок полностью аналогичен оригинальному 50-landscape-sysinfo ---
+    HAS_CACHE="FALSE"
+    CACHE_NEEDS_UPDATE="FALSE"
+
+    [ -r "$CACHE" ] && HAS_CACHE="TRUE"
+    [ -z "$(find "$CACHE" -newermt 'now-1 minutes' 2> /dev/null)" ] && CACHE_NEEDS_UPDATE="TRUE"
+
+    if [ "$HAS_CACHE" = "TRUE" ] && [ "$CACHE_NEEDS_UPDATE" = "FALSE" ]; then
+        SYSINFO_OUTPUT=$(cat "$CACHE")
+    else
+        SYSINFO_OUTPUT=""
+        [ -f /etc/default/locale ] && . /etc/default/locale
+        export LANG
+        CORES=$(grep -c ^processor /proc/cpuinfo 2>/dev/null)
+        [ "$CORES" -eq "0" ] && CORES=1
+        THRESHOLD="${CORES:-1}.0"
+
+        if [ "$(echo "$(cut -f1 -d ' ' /proc/loadavg) < $THRESHOLD" | bc)" -eq 1 ]; then
+            SYSINFO_OUTPUT=$(printf "\n System information as of %s\n\n%s\n" \
+                "$(/bin/date)" \
+                "$(/usr/bin/landscape-sysinfo)")
+            echo "$SYSINFO_OUTPUT" 2>/dev/null >"$CACHE" || true
+            chmod 0644 "$CACHE" 2>/dev/null || true
+        else
+            SYSINFO_OUTPUT=$(printf "\n System information disabled due to load higher than %s\n" "$THRESHOLD")
+            if [ "$HAS_CACHE" = "TRUE" ]; then
+                if ! grep -q "System information as of" "$CACHE" 2>/dev/null; then
+                    echo "$SYSINFO_OUTPUT" 2>/dev/null >"$CACHE" || true
+                    chmod 0644 "$CACHE" 2>/dev/null || true
+                else
+                    SYSINFO_OUTPUT=$(cat "$CACHE")
+                fi
+            fi
+        fi
+    fi
+
+    # === 2. Парсим sysinfo строки ===
+
+    wanted_keys=(
+        "System load:"
+        "Usage of /:"
+        "Memory usage:"
+        "Swap usage:"
+        "Processes:"
+        "Users logged in:"
+        "IPv4 address for"
+        "Temperature:"
+    )
+
+    while IFS= read -r line; do
+        field_positions=()
+        for key in "${wanted_keys[@]}"; do
+            pos=$(awk -v a="$line" -v b="$key" 'BEGIN{print index(a,b)}')
+            if [ "$pos" -gt 0 ]; then
+                field_positions+=("$pos:$key")
+            fi
+        done
+
+        if [ "${#field_positions[@]}" -eq 1 ]; then
+            key=${field_positions[0]#*:}
+            val=${line#*$key}
+            ENTRIES+=("Entry ${#ENTRIES[@]}: $key$val")
+        elif [ "${#field_positions[@]}" -gt 1 ]; then
+            IFS=$'\n' sorted=($(printf '%s\n' "${field_positions[@]}" | sort -n))
+            for i in "${!sorted[@]}"; do
+                pos=${sorted[$i]%%:*}
+                key=${sorted[$i]#*:}
+                start=$pos
+                if [ $i -lt $((${#sorted[@]} - 1)) ]; then
+                    next_pos=${sorted[$((i+1))]%%:*}
+                    length=$((next_pos - pos))
+                    chunk=${line:$start-1:$length}
+                else
+                    chunk=${line:$start-1}
+                fi
+                trimmed=$(echo "$chunk" | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
+                ENTRIES+=("Entry ${#ENTRIES[@]}: $trimmed")
+            done
+        fi
+    done <<< "$SYSINFO_OUTPUT"
+fi
+
+# === 3. Читаем логотип из файла ===
+if [ ! -f "$ASSET_LOGO_PATH" ]; then
+    echo "ERROR: Logo file not found at $ASSET_LOGO_PATH"
+    exit 1
+fi
+
+IFS=$'\n' read -r -d '' -a LOGO_LINES < "$ASSET_LOGO_PATH"
+LOGO_HEIGHT=${#LOGO_LINES[@]}
+LOGO_WIDTH=$(printf '%s\n' "${LOGO_LINES[@]}" | awk '{print length}' | sort -nr | head -n1)
+ENTRIES_HEIGHT=${#ENTRIES[@]}
+
+# === 4. CASE 1: Логотип слишком широкий — header + logo + sysinfo (vertically) ===
+if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
+    echo "Welcome to $DISTRIB_DESCRIPTION ($KERNEL_INFO)"
+    echo
+    for line in "${LOGO_LINES[@]}"; do
+        echo "$line"
+    done
+    echo
+    for entry in "${ENTRIES[@]:$STATIC_COUNT}"; do
+        # Не печатать Entry 0/1/2 — они были в заголовке
+        echo "$entry"
+    done
+    exit 0
+fi
+
+# === 5. CASE 2: Логотип достаточно высокий — logo + entries side-by-side ===
+if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
+    for i in "${!LOGO_LINES[@]}"; do
+        if [ $i -lt "$ENTRIES_HEIGHT" ]; then
+            printf "%s   %s\n" "${LOGO_LINES[$i]}" "${ENTRIES[$i]}"
+        else
+            printf "%s\n" "${LOGO_LINES[$i]}"
+        fi
+    done
+    exit 0
+fi
+
+# === 6. CASE 3: Логотип короткий — logo + 2-column sysinfo ===
+[ -r /etc/lsb-release ] && . /etc/lsb-release
+
+if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
+        # Fall back to using the very slow lsb_release utility
+        DISTRIB_DESCRIPTION=$(lsb_release -s -d)
+fi
+
+printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
+echo
+
+for line in "${LOGO_LINES[@]}"; do
+    echo "$line"
+done
+echo
+
+sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+half=$(( (${#sys_entries[@]} + 1) / 2 ))
+
+COLUMN_1=()
+COLUMN_2=()
+
+for i in "${!sys_entries[@]}"; do
+    if [ "$i" -lt "$half" ]; then
+        COLUMN_1+=("${sys_entries[$i]}")
+    else
+        COLUMN_2+=("${sys_entries[$i]}")
+    fi
+done
+
+# Выравниваем столбцы
+max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
+for i in $(seq 0 $((half - 1))); do
+    col1="${COLUMN_1[$i]}"
+    col2="${COLUMN_2[$i]}"
+    printf "%-*s   %s\n" "$max_len" "$col1" "$col2"
+done
