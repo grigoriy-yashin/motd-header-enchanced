@@ -128,20 +128,27 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
 
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
 
-    # --- 1. Выровнять значения по ключу (двоеточию) ---
-    align_entries=()
+    # --- 1. Собираем ключи и значения отдельно ---
+    keys=()
+    values=()
     key_width=0
+    value_width=0
 
     for line in "${sys_entries[@]}"; do
         key="${line%%:*}:"
+        value="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
+        keys+=("$key")
+        values+=("$value")
         [ ${#key} -gt $key_width ] && key_width=${#key}
+        [ ${#value} -gt $value_width ] && value_width=${#value}
     done
 
-    for line in "${sys_entries[@]}"; do
-        key="${line%%:*}:"
-        value="${line#*:}"
-        key_pad=$(printf "%-${key_width}s" "$key")
-        align_entries+=("$key_pad $value")
+    # --- 2. Формируем строки для колонок с выравниванием ---
+    align_entries=()
+    for i in "${!keys[@]}"; do
+        key_pad=$(printf "%-${key_width}s" "${keys[$i]}")
+        value_pad=$(printf "%-${value_width}s" "${values[$i]}")
+        align_entries+=("$key_pad $value_pad")
     done
 
     # --- 2. Разбить на две колонки ---
@@ -197,20 +204,27 @@ echo
 
 sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
 
-# --- 1. Выровнять значения по ключу (двоеточию) ---
-align_entries=()
+# --- 1. Собираем ключи и значения отдельно ---
+keys=()
+values=()
 key_width=0
+value_width=0
 
 for line in "${sys_entries[@]}"; do
     key="${line%%:*}:"
+    value="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
+    keys+=("$key")
+    values+=("$value")
     [ ${#key} -gt $key_width ] && key_width=${#key}
+    [ ${#value} -gt $value_width ] && value_width=${#value}
 done
 
-for line in "${sys_entries[@]}"; do
-    key="${line%%:*}:"
-    value="${line#*:}"
-    key_pad=$(printf "%-${key_width}s" "$key")
-    align_entries+=("$key_pad $value")
+# --- 2. Формируем строки для колонок с выравниванием ---
+align_entries=()
+for i in "${!keys[@]}"; do
+    key_pad=$(printf "%-${key_width}s" "${keys[$i]}")
+    value_pad=$(printf "%-${value_width}s" "${values[$i]}")
+    align_entries+=("$key_pad $value_pad")
 done
 
 # --- 2. Разбить на две колонки ---
