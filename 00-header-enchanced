@@ -1,8 +1,6 @@
 #!/bin/bash
 ###############################################################################
-# MOTD script: ASCII logo + system info entries (landscape-sysinfo based)
-# Handles wide/short logo logic, dynamic entry count, clean formatting, and
-# mirrors original 50-landscape-sysinfo cache behavior.
+# MOTD: ASCII logo + dynamic sysinfo entries with cache logic from 50-landscape
 ###############################################################################
 
 WIDTH=30
@@ -16,15 +14,13 @@ ENTRIES+=(" ")
 
 STATIC_COUNT=${#ENTRIES[@]}
 
-# =============================
-# 1. Parse landscape-sysinfo
-# =============================
+# === 1. Obtain system info from landscape-sysinfo ===
 if [ -x /usr/bin/landscape-sysinfo ]; then
     HAS_CACHE="FALSE"
     CACHE_NEEDS_UPDATE="FALSE"
 
     [ -r "$CACHE" ] && HAS_CACHE="TRUE"
-    [ -z "$(find "$CACHE" -newermt 'now-1 minutes' 2>/dev/null)" ] && CACHE_NEEDS_UPDATE="TRUE"
+    [ -z "$(find "$CACHE" -newermt 'now-1 minutes' 2> /dev/null)" ] && CACHE_NEEDS_UPDATE="TRUE"
 
     if [ "$HAS_CACHE" = "TRUE" ] && [ "$CACHE_NEEDS_UPDATE" = "FALSE" ]; then
         SYSINFO_OUTPUT=$(cat "$CACHE")
@@ -38,15 +34,15 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
 
         if [ "$(echo "$(cut -f1 -d ' ' /proc/loadavg) < $THRESHOLD" | bc)" -eq 1 ]; then
             SYSINFO_OUTPUT=$(printf "\n System information as of %s\n\n%s\n" \
-                "$(${DATE_CMD:-/bin/date})" \
-                "$(${LANDSCAPE_CMD:-/usr/bin/landscape-sysinfo)}")
-            echo "$SYSINFO_OUTPUT" > "$CACHE" 2>/dev/null || true
+                "$(/bin/date)" \
+                "$(/usr/bin/landscape-sysinfo)")
+            echo "$SYSINFO_OUTPUT" 2>/dev/null >"$CACHE" || true
             chmod 0644 "$CACHE" 2>/dev/null || true
         else
             SYSINFO_OUTPUT=$(printf "\n System information disabled due to load higher than %s\n" "$THRESHOLD")
             if [ "$HAS_CACHE" = "TRUE" ]; then
                 if ! grep -q "System information as of" "$CACHE" 2>/dev/null; then
-                    echo "$SYSINFO_OUTPUT" > "$CACHE" 2>/dev/null || true
+                    echo "$SYSINFO_OUTPUT" 2>/dev/null >"$CACHE" || true
                     chmod 0644 "$CACHE" 2>/dev/null || true
                 else
                     SYSINFO_OUTPUT=$(cat "$CACHE")
@@ -55,7 +51,6 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
         fi
     fi
 
-    # Parse output lines into key-value pairs based on known sysinfo labels
     wanted_keys=(
         "System load:"
         "Usage of /:"
@@ -71,14 +66,16 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
         field_positions=()
         for key in "${wanted_keys[@]}"; do
             pos=$(awk -v a="$line" -v b="$key" 'BEGIN{print index(a,b)}')
-            [ "$pos" -gt 0 ] && field_positions+=("$pos:$key")
+            if [ "$pos" -gt 0 ]; then
+                field_positions+=("$pos:$key")
+            fi
         done
 
-        if [ ${#field_positions[@]} -eq 1 ]; then
+        if [ "${#field_positions[@]}" -eq 1 ]; then
             key=${field_positions[0]#*:}
             val=${line#*$key}
             ENTRIES+=("$key$val")
-        elif [ ${#field_positions[@]} -gt 1 ]; then
+        elif [ "${#field_positions[@]}" -gt 1 ]; then
             IFS=$'\n' sorted=($(printf '%s\n' "${field_positions[@]}" | sort -n))
             for i in "${!sorted[@]}"; do
                 pos=${sorted[$i]%%:*}
@@ -98,69 +95,52 @@ if [ -x /usr/bin/landscape-sysinfo ]; then
     done <<< "$SYSINFO_OUTPUT"
 fi
 
-# =============================
-# 2. Read ASCII logo
-# =============================
+# === 2. Load logo ===
 if [ ! -f "$ASSET_LOGO_PATH" ]; then
     echo "ERROR: Logo file not found at $ASSET_LOGO_PATH"
     exit 1
 fi
+
 IFS=$'\n' read -r -d '' -a LOGO_LINES < "$ASSET_LOGO_PATH"
 LOGO_HEIGHT=${#LOGO_LINES[@]}
 LOGO_WIDTH=$(printf '%s\n' "${LOGO_LINES[@]}" | awk '{print length}' | sort -nr | head -n1)
 ENTRIES_HEIGHT=${#ENTRIES[@]}
 
-# =============================
-# 3. Format and print aligned entries
-# =============================
-print_aligned_entries() {
-    local -a entries=()
-    local -a keys=()
-    local -a values=()
-    local key_width=0
-    local value_width=0
+# === 3. Wide logo: header + logo + two-column sysinfo ===
+if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
+    [ -r /etc/lsb-release ] && . /etc/lsb-release
+    if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
+        DISTRIB_DESCRIPTION=$(lsb_release -s -d)
+    fi
+    printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
 
-    entries=("${@}")
-    for line in "${entries[@]}"; do
+    printf '%s\n' "${LOGO_LINES[@]}"
+    echo
+
+    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+    keys=(); values=(); key_width=0; value_width=0
+    for line in "${sys_entries[@]}"; do
         key="${line%%:*}:"
         value="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
-        keys+=("$key")
-        values+=("$value")
+        keys+=("$key"); values+=("$value")
         [ ${#key} -gt $key_width ] && key_width=${#key}
         [ ${#value} -gt $value_width ] && value_width=${#value}
     done
-
     align_entries=()
     for i in "${!keys[@]}"; do
-        key_pad=$(printf "%-${key_width}s" "${keys[$i]}")
-        value_pad=$(printf "%-${value_width}s" "${values[$i]}")
-        align_entries+=("$key_pad $value_pad")
+        align_entries+=("$(printf "%-${key_width}s %-${value_width}s" "${keys[$i]}" "${values[$i]}")")
     done
-
-    local half=$(( (${#align_entries[@]} + 1) / 2 ))
-    local -a col1=("${align_entries[@]:0:$half}")
-    local -a col2=("${align_entries[@]:$half}")
-
-    local max_len=$(printf '%s\n' "${col1[@]}" | awk '{print length}' | sort -nr | head -n1)
+    half=$(( (${#align_entries[@]} + 1) / 2 ))
+    COLUMN_1=("${align_entries[@]:0:$half}")
+    COLUMN_2=("${align_entries[@]:$half}")
+    max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
     for i in $(seq 0 $((half - 1))); do
-        printf "%-*s   %s\n" "$max_len" "${col1[$i]}" "${col2[$i]}"
+        printf "%-*s   %s\n" "$max_len" "${COLUMN_1[$i]}" "${COLUMN_2[$i]}"
     done
-}
-
-# =============================
-# 4. Decide display case
-# =============================
-if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
-    [ -r /etc/lsb-release ] && . /etc/lsb-release
-    [ -z "$DISTRIB_DESCRIPTION" ] && DISTRIB_DESCRIPTION=$(lsb_release -s -d 2>/dev/null)
-
-    printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
-    printf "%s\n" "${LOGO_LINES[@]}"
-    echo
-    print_aligned_entries "${ENTRIES[@]:$STATIC_COUNT}"
     exit 0
 fi
 
+# === 4. Tall logo: side-by-side with entries ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     for i in "${!LOGO_LINES[@]}"; do
         if [ $i -lt "$ENTRIES_HEIGHT" ]; then
@@ -172,12 +152,35 @@ if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     exit 0
 fi
 
+# === 5. Short logo: header + logo + two-column sysinfo ===
 [ -r /etc/lsb-release ] && . /etc/lsb-release
-[ -z "$DISTRIB_DESCRIPTION" ] && DISTRIB_DESCRIPTION=$(lsb_release -s -d 2>/dev/null)
-
+if [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ]; then
+    DISTRIB_DESCRIPTION=$(lsb_release -s -d)
+fi
 printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
-printf "%s\n" "${LOGO_LINES[@]}"
-
+printf '%s\n' "${LOGO_LINES[@]}"
 echo
-print_aligned_entries "${ENTRIES[@]:$STATIC_COUNT}"
+
+sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+keys=(); values=(); key_width=0; value_width=0
+for line in "${sys_entries[@]}"; do
+    key="${line%%:*}:"
+    value="$(echo "${line#*:}" | sed 's/^[[:space:]]*//')"
+    keys+=("$key"); values+=("$value")
+    [ ${#key} -gt $key_width ] && key_width=${#key}
+    [ ${#value} -gt $value_width ] && value_width=${#value}
+
+done
+align_entries=()
+for i in "${!keys[@]}"; do
+    align_entries+=("$(printf "%-${key_width}s %-${value_width}s" "${keys[$i]}" "${values[$i]}")")
+
+done
+half=$(( (${#align_entries[@]} + 1) / 2 ))
+COLUMN_1=("${align_entries[@]:0:$half}")
+COLUMN_2=("${align_entries[@]:$half}")
+max_len=$(printf '%s\n' "${COLUMN_1[@]}" | awk '{print length}' | sort -nr | head -n1)
+for i in $(seq 0 $((half - 1))); do
+    printf "%-*s   %s\n" "$max_len" "${COLUMN_1[$i]}" "${COLUMN_2[$i]}"
+done
 exit 0
