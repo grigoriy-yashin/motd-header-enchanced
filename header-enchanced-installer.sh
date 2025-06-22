@@ -200,7 +200,7 @@ print_header_and_sysinfo() {
     [ -r /etc/lsb-release ] && . /etc/lsb-release
     [ -z "$DISTRIB_DESCRIPTION" ] && [ -x /usr/bin/lsb_release ] && DISTRIB_DESCRIPTION=$(lsb_release -s -d)
 
-    printf "Welcome to %s (%s %s %s)\n\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
+    printf "Welcome to %s (%s %s %s)\n" "$DISTRIB_DESCRIPTION" "$(uname -o)" "$(uname -r)" "$(uname -m)"
     printf '%s\n' "${LOGO_LINES[@]}"
 
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
