@@ -263,29 +263,32 @@ fi
 
 # === 4. Tall logo: logo on left, sysinfo on right ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
-    # 4.1. find max key length
+    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+
+    # 4.1. Find max key length in sys_entries only
     MAX_KEY=0
-    for entry in "${ENTRIES[@]}"; do
+    for entry in "${sys_entries[@]}"; do
         key="${entry%%:*}:"
         [ ${#key} -gt "$MAX_KEY" ] && MAX_KEY=${#key}
     done
+    PAD=$((MAX_KEY + 1))
 
-    # 4.2. print logo with sysinfo entries
-    PAD=$((MAX_KEY + 1))               # +1 space after key
     for i in "${!LOGO_LINES[@]}"; do
         if [ "$i" -lt "$ENTRIES_HEIGHT" ]; then
-            key="${ENTRIES[$i]%%:*}:"
-            val="$(echo "${ENTRIES[$i]#*:}" | sed 's/^ *//')"
-            # LOGO_LINES → three spaces -> key → padding → value
-            printf "%s   %-*s %s\n" \
-                "${LOGO_LINES[$i]}" "$MAX_KEY" "$key" "$val"
+            if [ "$i" -lt "$STATIC_COUNT" ]; then
+                printf "%s   %s\n" "${LOGO_LINES[$i]}" "${ENTRIES[$i]}"
+            else
+                idx=$((i - STATIC_COUNT))
+                key="${sys_entries[$idx]%%:*}:"
+                val="$(echo "${sys_entries[$idx]#*:}" | sed 's/^ *//')"
+                printf "%s   %-*s %s\n" "${LOGO_LINES[$i]}" "$MAX_KEY" "$key" "$val"
+            fi
         else
             printf "%s\n" "${LOGO_LINES[$i]}"
         fi
     done
     exit 0
 fi
-
 
 # === 5. Short and narrow logo with header on the right ===
 if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
