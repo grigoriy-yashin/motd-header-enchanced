@@ -99,6 +99,7 @@ ASSET_LOGO_PATH="/etc/update-motd.d/assets/logo.txt"
 CACHE="/var/lib/landscape/landscape-sysinfo.cache"
 
 ENTRIES=()
+ENTRIES+=(" ")
 ENTRIES+=("Welcome to $(lsb_release -d | cut -f2-)")
 ENTRIES+=("($(uname -o) $(uname -r) $(uname -m))")
 ENTRIES+=(" ")
