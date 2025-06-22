@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-SCRIPT_NAME="01-header-advanced"
+SCRIPT_NAME="01-header-enchanced"
 INSTALL_PATH="/etc/update-motd.d/$SCRIPT_NAME"
 ASSETS_DIR="/etc/update-motd.d/assets"
-DISABLED_DIR="/etc/update-motd.d/disabled"
+DISABLED_DIR="/etc/update-motd.d/disabled-by-$SCRIPT_NAME"
 LOGO_FILE="$ASSETS_DIR/logo.txt"
 WIDTH_DEFAULT=30
 MAX_WIDTH="$WIDTH_DEFAULT"
