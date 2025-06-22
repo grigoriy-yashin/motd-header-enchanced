@@ -181,7 +181,7 @@ if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     exit 0
 fi
 
-# === 6. Short and narrow logo with header on the right ===
+# === 5. Short and narrow logo with header on the right ===
 if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
     WELCOME="${ENTRIES[0]}"
     KERNEL="${ENTRIES[1]}"
@@ -251,6 +251,6 @@ if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
     exit 0
 fi
 
-# === 5. Default: short logo logic (fallback) ===
+# === 6. Default: short logo logic (fallback) ===
 print_header_and_sysinfo
 exit 0
