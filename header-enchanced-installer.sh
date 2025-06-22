@@ -9,8 +9,7 @@ LOGO_FILE="$ASSETS_DIR/logo.txt"
 WIDTH_DEFAULT=30
 MAX_WIDTH="$WIDTH_DEFAULT"
 
-# Default ASCII logo content
-read -r -d '' DEFAULT_LOGO_CONTENT << 'EOL'
+DEFAULT_LOGO_CONTENT="$(cat <<'EOF'
  
           -%%%%%%%%%%:         
        #%%%%%%%%%%%%%%%%*      
@@ -27,8 +26,10 @@ read -r -d '' DEFAULT_LOGO_CONTENT << 'EOL'
    :%%%%%%%%%*=--=%    %%%%%.  
      #%%%%%%%%%%%%%%..#%%%*    
        +%%%%%%%%%%%%%%%%-      
-           +%%%%%%%%=            
-EOL
+           +%%%%%%%%=          
+                               
+EOF
+)"
 
 show_help() {
     cat <<EOF
