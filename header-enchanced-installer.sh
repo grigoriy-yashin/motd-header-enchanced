@@ -260,46 +260,61 @@ if [ "$LOGO_WIDTH" -gt "$WIDTH" ]; then
     exit 0
 fi
 
-# === 4. Tall logo: logo on left, sysinfo on right ===
+# === 4. Tall logo: logo on left, sysinfo on right (advanced layout) ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
-    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+    # Split static and dynamic entries
     static_entries=("${ENTRIES[@]:0:$STATIC_COUNT}")
+    sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
     sys_count=${#sys_entries[@]}
 
-    # Find max key length in sys_entries
+    # Max key length among dynamic entries
     MAX_KEY=0
     for entry in "${sys_entries[@]}"; do
         key="${entry%%:*}:"
         [ ${#key} -gt "$MAX_KEY" ] && MAX_KEY=${#key}
     done
 
-    # Break sys_entries into two halves with empty line in middle
+    # First and second halves of sysinfo
     half=$(( (sys_count + 1) / 2 ))
-    sys_first=("${sys_entries[@]:0:$half}")
-    sys_second=("${sys_entries[@]:$half}")
+    first_half=("${sys_entries[@]:0:$half}")
+    second_half=("${sys_entries[@]:$half}")
 
-    # Optional footer
-    footer_entries=()
-    remaining_lines=$((LOGO_HEIGHT - ENTRIES_HEIGHT))
-    if [ "$remaining_lines" -ge 6 ]; then
-        footer_entries+=(" * Documentation:  https://help.ubuntu.com")
-        footer_entries+=(" * Management:     https://landscape.canonical.com")
-        footer_entries+=(" * Support:        https://ubuntu.com/pro")
+    # Assemble full list: static | first_half | blank | second_half
+    all_entries=("${static_entries[@]}" "${first_half[@]}" "" "${second_half[@]}")
+
+    # Calculate remaining lines below current entries under the logo
+    remaining=$(( LOGO_HEIGHT - ${#all_entries[@]} ))
+
+    # Optional footer block (needs at least 7 free lines: spacer + 6 lines)
+    if [ "$remaining" -ge 7 ]; then
+        all_entries+=("")
+        all_entries+=(" * Documentation:")
+        all_entries+=("   https://help.ubuntu.com")
+        all_entries+=(" * Management:")
+        all_entries+=("   https://landscape.canonical.com")
+        all_entries+=(" * Support:")
+        all_entries+=("   https://ubuntu.com/pro")
     fi
 
-    # Rebuild full list of right-side entries
-    all_entries=("${static_entries[@]}" "${sys_first[@]}" "" "${sys_second[@]}" "${footer_entries[@]}")
-    total_lines=${#all_entries[@]}
+    total=${#all_entries[@]}
 
-    # Output
+    # Render logo + right column
     for i in $(seq 0 $((LOGO_HEIGHT - 1))); do
         logo="${LOGO_LINES[$i]}"
-        if [ "$i" -lt "$total_lines" ]; then
+        if [ "$i" -lt "$total" ]; then
             line="${all_entries[$i]}"
-            if echo "$line" | grep -q ':'; then
-                key="${line%%:*}:"
-                val="$(echo "${line#*:}" | sed 's/^ *//')"
-                printf "%s   %-*s %s\n" "$logo" "$MAX_KEY" "$key" "$val"
+            # Empty or footer lines without ':' are printed raw
+            if printf '%s' "$line" | grep -q ':'; then
+                case "$line" in
+                    " * "*)  # footer bullet or blank key line
+                        printf "%s   %s\n" "$logo" "$line"
+                        ;;
+                    *)
+                        key="${line%%:*}:"
+                        val="$(printf '%s' "${line#*:}" | sed 's/^ *//')"
+                        printf "%s   %-*s %s\n" "$logo" "$MAX_KEY" "$key" "$val"
+                        ;;
+                esac
             else
                 printf "%s   %s\n" "$logo" "$line"
             fi
