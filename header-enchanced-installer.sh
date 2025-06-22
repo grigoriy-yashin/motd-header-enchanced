@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 SCRIPT_NAME="01-header-advanced"
@@ -9,6 +9,7 @@ LOGO_FILE="$ASSETS_DIR/logo.txt"
 WIDTH_DEFAULT=30
 MAX_WIDTH="$WIDTH_DEFAULT"
 
+# Default ASCII logo content
 DEFAULT_LOGO_CONTENT="$(cat <<'EOF'
  
           -%%%%%%%%%%:         
@@ -34,10 +35,11 @@ EOF
 show_help() {
     cat <<EOF
 Usage:
-  sudo $0 install [--max-logo-width WIDTH] [--with-landscape]
+  sudo $0 --install [--max-logo-width WIDTH] [--with-landscape]
   sudo $0 --uninstall [--purge]
 
 Options:
+  --install             Install the MOTD script
   --max-logo-width N    Set max logo width to determine layout (default: $WIDTH_DEFAULT)
   --with-landscape      Install landscape-sysinfo if missing
   --uninstall           Uninstall the MOTD script
@@ -74,7 +76,7 @@ restore_disabled_scripts() {
 install_logo() {
     ensure_dir "$ASSETS_DIR"
     if [ ! -f "$LOGO_FILE" ]; then
-        echo "$DEFAULT_LOGO_CONTENT" > "$LOGO_FILE"
+        printf "%s\n" "$DEFAULT_LOGO_CONTENT" > "$LOGO_FILE"
     fi
 }
 
@@ -354,9 +356,9 @@ ACTION=""
 WITH_LANDSCAPE=0
 PURGE=0
 
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
     case "$1" in
-        install)
+        --install)
             ACTION="install"
             ;;
         --uninstall)
@@ -390,13 +392,17 @@ case "$ACTION" in
         embed_script
         install_logo
         move_script_to_disabled
-        [ "$WITH_LANDSCAPE" -eq 1 ] && install_landscape
+        if [ "$WITH_LANDSCAPE" -eq 1 ]; then
+            install_landscape
+        fi
         echo "Installed $SCRIPT_NAME with logo width limit $MAX_WIDTH"
         ;;
     uninstall)
         rm -f "$INSTALL_PATH"
         restore_disabled_scripts
-        [ "$PURGE" -eq 1 ] && purge_all
+        if [ "$PURGE" -eq 1 ]; then
+            purge_all
+        fi
         echo "Uninstalled $SCRIPT_NAME"
         ;;
     *)
