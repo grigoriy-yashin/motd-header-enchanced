@@ -204,7 +204,7 @@ print_header_and_sysinfo() {
     printf '%s\n' "${LOGO_LINES[@]}"
 
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
-    [ "${#sys_entries[@]}" -gt 0 ] && printf " System information as of %s\n\n" "$(/bin/date)"
+    [ "${#sys_entries[@]}" -gt 0 ] && printf "\n System information as of %s\n\n" "$(/bin/date)"
 
     half=$(( (${#sys_entries[@]} + 1) / 2 ))
     LEFT=("${sys_entries[@]:0:$half}")
@@ -308,7 +308,7 @@ if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
 
     # Print system info entries (excluding header)
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
-    [ "${#sys_entries[@]}" -gt 0 ] && printf " System information as of %s\n\n" "$(/bin/date)"
+    [ "${#sys_entries[@]}" -gt 0 ] && printf "\n System information as of %s\n\n" "$(/bin/date)"
 
     half=$(( (${#sys_entries[@]} + 1) / 2 ))
     LEFT=("${sys_entries[@]:0:$half}")
