@@ -262,62 +262,56 @@ fi
 
 # === 4. Tall logo: logo on left, sysinfo on right (advanced layout) ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
-    # Split static and dynamic entries
     static_entries=("${ENTRIES[@]:0:$STATIC_COUNT}")
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
     sys_count=${#sys_entries[@]}
 
-    # Max key length among dynamic entries
     MAX_KEY=0
     for entry in "${sys_entries[@]}"; do
         key="${entry%%:*}:"
         [ ${#key} -gt "$MAX_KEY" ] && MAX_KEY=${#key}
     done
 
-    # First and second halves of sysinfo
     half=$(( (sys_count + 1) / 2 ))
     first_half=("${sys_entries[@]:0:$half}")
     second_half=("${sys_entries[@]:$half}")
 
-    # Assemble full list: static | first_half | blank | second_half
     all_entries=("${static_entries[@]}" "${first_half[@]}" "" "${second_half[@]}")
 
-    # Calculate remaining lines below current entries under the logo
     remaining=$(( LOGO_HEIGHT - ${#all_entries[@]} ))
 
-    # Optional footer block (needs at least 7 free lines: spacer + 6 lines)
     if [ "$remaining" -ge 7 ]; then
         all_entries+=("")
-        all_entries+=(" * Documentation:")
-        all_entries+=("   https://help.ubuntu.com")
-        all_entries+=(" * Management:")
-        all_entries+=("   https://landscape.canonical.com")
-        all_entries+=(" * Support:")
-        all_entries+=("   https://ubuntu.com/pro")
+        all_entries+=("DOC_HEADER:: * Documentation")
+        all_entries+=("DOC_BODY::https://help.ubuntu.com")
+        all_entries+=("DOC_HEADER:: * Management")
+        all_entries+=("DOC_BODY::https://landscape.canonical.com")
+        all_entries+=("DOC_HEADER:: * Support")
+        all_entries+=("DOC_BODY::https://ubuntu.com/pro")
     fi
 
     total=${#all_entries[@]}
 
-    # Render logo + right column
     for i in $(seq 0 $((LOGO_HEIGHT - 1))); do
         logo="${LOGO_LINES[$i]}"
         if [ "$i" -lt "$total" ]; then
             line="${all_entries[$i]}"
-            # Empty or footer lines without ':' are printed raw
-            if printf '%s' "$line" | grep -q ':'; then
-                case "$line" in
-                    " * "*)  # footer bullet or blank key line
-                        printf "%s   %s\n" "$logo" "$line"
-                        ;;
-                    *)
-                        key="${line%%:*}:"
-                        val="$(printf '%s' "${line#*:}" | sed 's/^ *//')"
-                        printf "%s   %-*s %s\n" "$logo" "$MAX_KEY" "$key" "$val"
-                        ;;
-                esac
-            else
-                printf "%s   %s\n" "$logo" "$line"
-            fi
+            case "$line" in
+                DOC_HEADER::*)
+                    printf "%s   %s\n" "$logo" "${line#DOC_HEADER::}"
+                    ;;
+                DOC_BODY::* )
+                    printf "%s   %s\n" "$logo" "  ${line#DOC_BODY::}"
+                    ;;
+                *:*)
+                    key="${line%%:*}:"
+                    val="$(printf '%s' "${line#*:}" | sed 's/^ *//')"
+                    printf "%s   %-*s %s\n" "$logo" "$MAX_KEY" "$key" "$val"
+                    ;;
+                *)
+                    printf "%s   %s\n" "$logo" "$line"
+                    ;;
+            esac
         else
             printf "%s\n" "$logo"
         fi
