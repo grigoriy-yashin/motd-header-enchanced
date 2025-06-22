@@ -263,27 +263,48 @@ fi
 # === 4. Tall logo: logo on left, sysinfo on right ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
     sys_entries=("${ENTRIES[@]:$STATIC_COUNT}")
+    static_entries=("${ENTRIES[@]:0:$STATIC_COUNT}")
+    sys_count=${#sys_entries[@]}
 
-    # 4.1. Find max key length in sys_entries only
+    # Find max key length in sys_entries
     MAX_KEY=0
     for entry in "${sys_entries[@]}"; do
         key="${entry%%:*}:"
         [ ${#key} -gt "$MAX_KEY" ] && MAX_KEY=${#key}
     done
-    PAD=$((MAX_KEY + 1))
 
-    for i in "${!LOGO_LINES[@]}"; do
-        if [ "$i" -lt "$ENTRIES_HEIGHT" ]; then
-            if [ "$i" -lt "$STATIC_COUNT" ]; then
-                printf "%s   %s\n" "${LOGO_LINES[$i]}" "${ENTRIES[$i]}"
+    # Break sys_entries into two halves with empty line in middle
+    half=$(( (sys_count + 1) / 2 ))
+    sys_first=("${sys_entries[@]:0:$half}")
+    sys_second=("${sys_entries[@]:$half}")
+
+    # Optional footer
+    footer_entries=()
+    remaining_lines=$((LOGO_HEIGHT - ENTRIES_HEIGHT))
+    if [ "$remaining_lines" -ge 6 ]; then
+        footer_entries+=(" * Documentation:  https://help.ubuntu.com")
+        footer_entries+=(" * Management:     https://landscape.canonical.com")
+        footer_entries+=(" * Support:        https://ubuntu.com/pro")
+    fi
+
+    # Rebuild full list of right-side entries
+    all_entries=("${static_entries[@]}" "${sys_first[@]}" "" "${sys_second[@]}" "${footer_entries[@]}")
+    total_lines=${#all_entries[@]}
+
+    # Output
+    for i in $(seq 0 $((LOGO_HEIGHT - 1))); do
+        logo="${LOGO_LINES[$i]}"
+        if [ "$i" -lt "$total_lines" ]; then
+            line="${all_entries[$i]}"
+            if echo "$line" | grep -q ':'; then
+                key="${line%%:*}:"
+                val="$(echo "${line#*:}" | sed 's/^ *//')"
+                printf "%s   %-*s %s\n" "$logo" "$MAX_KEY" "$key" "$val"
             else
-                idx=$((i - STATIC_COUNT))
-                key="${sys_entries[$idx]%%:*}:"
-                val="$(echo "${sys_entries[$idx]#*:}" | sed 's/^ *//')"
-                printf "%s   %-*s %s\n" "${LOGO_LINES[$i]}" "$MAX_KEY" "$key" "$val"
+                printf "%s   %s\n" "$logo" "$line"
             fi
         else
-            printf "%s\n" "${LOGO_LINES[$i]}"
+            printf "%s\n" "$logo"
         fi
     done
     exit 0
