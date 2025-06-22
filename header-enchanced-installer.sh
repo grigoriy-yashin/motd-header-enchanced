@@ -11,7 +11,7 @@ MAX_WIDTH="$WIDTH_DEFAULT"
 
 # Default ASCII logo content
 DEFAULT_LOGO_CONTENT="$(cat <<'EOF'
- 
+                               
           -%%%%%%%%%%:         
        #%%%%%%%%%%%%%%%%*      
      %%%%%%%%%%%%%%*  +%%%#    
@@ -280,9 +280,9 @@ if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
 
     for i in "${!LOGO_LINES[@]}"; do
         LINE="${LOGO_LINES[$i]}"
-        if [ $i -eq 0 ]; then
+        if [ $i -eq 1 ]; then
             printf "%s%s%s\n" "$LINE" "$PAD" "$WELCOME"
-        elif [ $i -eq 1 ]; then
+        elif [ $i -eq 2 ]; then
             printf "%s%s%s\n" "$LINE" "$PAD" "$KERNEL"
         else
             printf "%s\n" "$LINE"
