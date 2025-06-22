@@ -263,15 +263,29 @@ fi
 
 # === 4. Tall logo: logo on left, sysinfo on right ===
 if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
+    # 4.1. find max key length
+    MAX_KEY=0
+    for entry in "${ENTRIES[@]}"; do
+        key="${entry%%:*}:"
+        [ ${#key} -gt "$MAX_KEY" ] && MAX_KEY=${#key}
+    done
+
+    # 4.2. print logo with sysinfo entries
+    PAD=$((MAX_KEY + 1))               # +1 space after key
     for i in "${!LOGO_LINES[@]}"; do
-        if [ $i -lt "$ENTRIES_HEIGHT" ]; then
-            printf "%s   %s\n" "${LOGO_LINES[$i]}" "${ENTRIES[$i]}"
+        if [ "$i" -lt "$ENTRIES_HEIGHT" ]; then
+            key="${ENTRIES[$i]%%:*}:"
+            val="$(echo "${ENTRIES[$i]#*:}" | sed 's/^ *//')"
+            # LOGO_LINES → three spaces -> key → padding → value
+            printf "%s   %-*s %s\n" \
+                "${LOGO_LINES[$i]}" "$MAX_KEY" "$key" "$val"
         else
             printf "%s\n" "${LOGO_LINES[$i]}"
         fi
     done
     exit 0
 fi
+
 
 # === 5. Short and narrow logo with header on the right ===
 if [ "$LOGO_HEIGHT" -lt "$ENTRIES_HEIGHT" ]; then
