@@ -58,7 +58,7 @@ install_landscape() {
 }
 
 move_script_to_disabled() {
-    for f in /etc/update-motd.d/00-header /etc/update-motd.d/50-landscape-sysinfo; do
+    for f in /etc/update-motd.d/00-header /etc/update-motd.d/10-help-text /etc/update-motd.d/50-landscape-sysinfo; do
         if [ -f "$f" ]; then
             ensure_dir "$DISABLED_DIR"
             mv -f "$f" "$DISABLED_DIR/"
