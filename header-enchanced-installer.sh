@@ -282,11 +282,11 @@ if [ "$LOGO_HEIGHT" -ge "$ENTRIES_HEIGHT" ]; then
 
     if [ "$remaining" -ge 7 ]; then
         all_entries+=("")
-        all_entries+=("DOC_HEADER:: * Documentation")
+        all_entries+=("DOC_HEADER::Documentation:")
         all_entries+=("DOC_BODY::https://help.ubuntu.com")
-        all_entries+=("DOC_HEADER:: * Management")
+        all_entries+=("DOC_HEADER::Management:")
         all_entries+=("DOC_BODY::https://landscape.canonical.com")
-        all_entries+=("DOC_HEADER:: * Support")
+        all_entries+=("DOC_HEADER::Support:")
         all_entries+=("DOC_BODY::https://ubuntu.com/pro")
     fi
 
